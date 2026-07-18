@@ -20,14 +20,37 @@ class OHLCVStore:
 
     def __init__(self, db_path: str = "", supabase_sync_enabled: bool = True):
         # db_path kept in signature for backward compat but unused.
-        from smart_trader.data.supabase_client import SupabaseClient
-        self._sb = SupabaseClient()
+        # Supabase is an optional persistence cache. When it's disabled or its
+        # credentials are absent, operate in yfinance-direct mode (fetch every
+        # time, no persistence) instead of failing — otherwise a missing
+        # SUPABASE_URL/KEY takes down the entire market-data pipeline.
+        self._sb = None
+        if supabase_sync_enabled:
+            try:
+                from smart_trader.data.supabase_client import SupabaseClient
+                self._sb = SupabaseClient()
+            except Exception as e:
+                logger.warning(
+                    f"OHLCVStore: Supabase unavailable ({e}); "
+                    f"running in yfinance-direct mode (no persistent cache)"
+                )
+        else:
+            logger.info("OHLCVStore: Supabase sync disabled; yfinance-direct mode")
 
     # ------------------------------------------------------------------ main
 
     def get_or_fetch(self, symbol: str, start: str, end: str) -> pd.DataFrame:
-        """Return OHLCV bars for [start, end]. Read-through cache via Supabase."""
+        """Return OHLCV bars for [start, end]. Read-through cache via Supabase.
+
+        With no Supabase configured, fetches directly from yfinance each call.
+        """
         symbol = symbol.upper().strip()
+
+        if self._sb is None:
+            df = self._fetch_from_yfinance(symbol, start, end)
+            if df.empty:
+                logger.warning(f"  ohlcv: yfinance returned empty for {symbol} {start}..{end}")
+            return df
 
         cached = self._read_range(symbol, start, end)
         if self._range_covered(cached, start, end):

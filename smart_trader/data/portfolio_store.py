@@ -82,15 +82,26 @@ class PortfolioStore:
         supabase_sync_enabled: bool = True,
     ):
         # db_path kept in signature for backward compat but unused.
-        from smart_trader.data.supabase_client import SupabaseClient
-        self._sb = SupabaseClient()
+        # Supabase is optional persistence. Without it (or when sync is disabled)
+        # all reads return empty and writes are no-ops, so the trading loop runs
+        # fine — it just doesn't persist snapshots/exit-state across restarts.
+        self._sb = None
+        if supabase_sync_enabled:
+            try:
+                from smart_trader.data.supabase_client import SupabaseClient
+                self._sb = SupabaseClient()
+            except Exception as e:
+                logger.warning(
+                    f"PortfolioStore: Supabase unavailable ({e}); "
+                    f"persistence disabled (snapshots/exit-state won't survive restarts)"
+                )
         self.retention_days = retention_days
 
     # ------------------------------------------------------------------ raw holdings archive
 
     def store_raw_holdings(self, holdings: List[FundHoldings]) -> int:
         """Upsert raw fund holdings into the fund_holdings_raw table."""
-        if not holdings:
+        if self._sb is None or not holdings:
             return 0
         now = datetime.now().isoformat()
         rows = [
@@ -124,6 +135,8 @@ class PortfolioStore:
         entry_prices: Dict[str, Optional[float]],
     ) -> int:
         """Persist a full-universe snapshot. Returns snapshot_id."""
+        if self._sb is None:
+            return -1
         generated_at = datetime.now().isoformat()
         universe_size = len(scored)
 
@@ -198,6 +211,8 @@ class PortfolioStore:
 
     def save_exit_state(self, state: Dict[str, Dict[str, datetime]]) -> None:
         """Persist signal-driven exit state dicts to exit_state_kv."""
+        if self._sb is None:
+            return
         now_iso = datetime.now().isoformat()
         rows = []
         for key in _EXIT_STATE_KEYS:
@@ -213,6 +228,8 @@ class PortfolioStore:
     def load_exit_state(self) -> Dict[str, Dict[str, datetime]]:
         """Return the persisted signal-driven exit state."""
         out: Dict[str, Dict[str, datetime]] = {key: {} for key in _EXIT_STATE_KEYS}
+        if self._sb is None:
+            return out
         keys_csv = ",".join(_EXIT_STATE_KEYS)
         rows = self._sb.select(
             "exit_state_kv",
@@ -242,6 +259,8 @@ class PortfolioStore:
 
     def load_latest(self) -> Optional[PortfolioSnapshot]:
         """Return the most recent portfolio snapshot, or None."""
+        if self._sb is None:
+            return None
         # 1. Get latest snapshot metadata.
         snap_rows = self._sb.select(
             "portfolio_snapshots",

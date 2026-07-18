@@ -22,6 +22,23 @@ _DEFAULT_FILL_PRICE = 100.00
 _INITIAL_EQUITY = 100_000.00
 
 
+def _duration_to_days(duration: str) -> int:
+    """Convert an IBKR-style duration ("2 Y", "6 M", "30 D") to days."""
+    try:
+        num_str, unit = duration.strip().split()
+        num = int(num_str)
+    except (ValueError, AttributeError):
+        return 365
+    u = unit.upper()
+    if u.startswith("Y"):
+        return num * 365
+    if u.startswith("M"):
+        return num * 31
+    if u.startswith("W"):
+        return num * 7
+    return num
+
+
 class MockBroker:
     """Simulates broker operations using OHLCV data for fills."""
 
@@ -95,9 +112,35 @@ class MockBroker:
         """Wrap submit_order for trailing-stop bracket interface."""
         return self.submit_bracket_order(symbol, shares, action, **kwargs)
 
-    def get_historical_bars(self, symbol: str, **kwargs):
-        """Return None — no market data in mock mode."""
-        return None
+    def get_historical_bars(self, symbol: str, duration: str = "2 Y",
+                            bar_size: str = "1 day", **kwargs):
+        """Serve daily OHLCV bars from the (yfinance-backed) OHLCVStore.
+
+        This lets the market-regime gate and ladder-in logic work in mock mode.
+        Returns a DataFrame with columns open/high/low/close/volume, or None if
+        no store is wired or no data is available. Only daily bars are supported
+        (the store is a daily cache); intraday bar_size requests fall through to
+        the same daily series, which is fine for the regime/ladder use cases.
+        """
+        if self._ohlcv_store is None:
+            return None
+        try:
+            days = _duration_to_days(duration)
+            end = datetime.now()
+            start = end - timedelta(days=days)
+            df = self._ohlcv_store.get_or_fetch(
+                symbol,
+                start.strftime("%Y-%m-%d"),
+                end.strftime("%Y-%m-%d"),
+            )
+            if df is None or df.empty:
+                return None
+            return df
+        except Exception as e:
+            logger.warning(
+                f"MockBroker: get_historical_bars failed for {symbol}: {e}"
+            )
+            return None
 
     def set_ohlcv_store(self, ohlcv_store) -> None:
         """Allow late-binding of the OHLCV store after initialization."""
