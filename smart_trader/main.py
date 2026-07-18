@@ -438,7 +438,10 @@ class SmartTrader:
                 f"Market closed ({market_status_reason()}) — skipping cycle; "
                 f"next check {next_cycle.strftime('%H:%M')}"
             )
-            api_state.update(next_cycle_time=next_cycle.isoformat())
+            api_state.update(
+                next_cycle_time=next_cycle.isoformat(),
+                agent_status=self._compute_agent_status(),
+            )
             self._apply_demo_overlay()
             return
 
@@ -983,51 +986,7 @@ class SmartTrader:
             self.commentary_generator.generate_async(cycle_context)
 
         # --- Update agent_status in api_state ---
-        agent_status = {
-            "catalyst": "disabled",
-            "arbitration": "disabled",
-            "commentary": "disabled",
-            "last_cycle_timestamp": datetime.now().isoformat(),
-        }
-        if self.config.qwen_agent.qwen_enabled:
-            # Catalyst status. "failed" is reserved for genuine wiring errors;
-            # a source that is simply switched off reports "disabled" so the
-            # dashboard never shows a false alarm.
-            if self.config.qwen_agent.catalyst_classification_enabled:
-                classifier_wired = (
-                    self.catalyst_analyzer is not None
-                    and getattr(self.catalyst_analyzer, "_classifier", None) is not None
-                )
-                if not self.config.smart_money.catalyst_enabled:
-                    # News source itself is off — classification has nothing to run on.
-                    agent_status["catalyst"] = "disabled"
-                elif classifier_wired:
-                    agent_status["catalyst"] = "succeeded"
-                else:
-                    agent_status["catalyst"] = "failed"
-            # Arbitration status
-            if self.config.qwen_agent.signal_arbitration_enabled:
-                agent_status["arbitration"] = (
-                    "succeeded" if self.signal_arbitrator is not None else "failed"
-                )
-            # Commentary status
-            if self.config.qwen_agent.commentary_enabled:
-                agent_status["commentary"] = (
-                    "succeeded" if self.commentary_generator is not None else "failed"
-                )
-            # Attach a concrete reason for any "failed" component so the failure is
-            # diagnosable from the API/dashboard, not just the server logs.
-            if agent_status["catalyst"] == "failed":
-                agent_status["catalyst_error"] = (
-                    self._catalyst_init_error
-                    or self._qwen_init_error
-                    or "CatalystClassifier not wired (see server logs)"
-                )
-            if "failed" in (agent_status["arbitration"], agent_status["commentary"]):
-                agent_status["qwen_error"] = (
-                    self._qwen_init_error or "Qwen component not initialized (see server logs)"
-                )
-        api_state.update(agent_status=agent_status)
+        api_state.update(agent_status=self._compute_agent_status())
 
         # --- Push state to API ---
         try:
@@ -1643,6 +1602,60 @@ class SmartTrader:
         if arb_reasoning:
             entry["arbitration_reasoning"] = arb_reasoning
         return entry
+
+    def _compute_agent_status(self) -> Dict[str, Any]:
+        """Build the per-component Qwen agent status (wiring, not per-call result).
+
+        "succeeded" means the component is wired and ready, "failed" a genuine
+        wiring error, "disabled" the feature is off. Reported every cycle AND
+        while the market-hours gate is skipping cycles, so the dashboard chips
+        reflect readiness rather than going grey off-hours.
+        """
+        agent_status: Dict[str, Any] = {
+            "catalyst": "disabled",
+            "arbitration": "disabled",
+            "commentary": "disabled",
+            "last_cycle_timestamp": datetime.now().isoformat(),
+        }
+        if self.config.qwen_agent.qwen_enabled:
+            # Catalyst status. "failed" is reserved for genuine wiring errors;
+            # a source that is simply switched off reports "disabled" so the
+            # dashboard never shows a false alarm.
+            if self.config.qwen_agent.catalyst_classification_enabled:
+                classifier_wired = (
+                    self.catalyst_analyzer is not None
+                    and getattr(self.catalyst_analyzer, "_classifier", None) is not None
+                )
+                if not self.config.smart_money.catalyst_enabled:
+                    # News source itself is off — classification has nothing to run on.
+                    agent_status["catalyst"] = "disabled"
+                elif classifier_wired:
+                    agent_status["catalyst"] = "succeeded"
+                else:
+                    agent_status["catalyst"] = "failed"
+            # Arbitration status
+            if self.config.qwen_agent.signal_arbitration_enabled:
+                agent_status["arbitration"] = (
+                    "succeeded" if self.signal_arbitrator is not None else "failed"
+                )
+            # Commentary status
+            if self.config.qwen_agent.commentary_enabled:
+                agent_status["commentary"] = (
+                    "succeeded" if self.commentary_generator is not None else "failed"
+                )
+            # Attach a concrete reason for any "failed" component so the failure is
+            # diagnosable from the API/dashboard, not just the server logs.
+            if agent_status["catalyst"] == "failed":
+                agent_status["catalyst_error"] = (
+                    self._catalyst_init_error
+                    or self._qwen_init_error
+                    or "CatalystClassifier not wired (see server logs)"
+                )
+            if "failed" in (agent_status["arbitration"], agent_status["commentary"]):
+                agent_status["qwen_error"] = (
+                    self._qwen_init_error or "Qwen component not initialized (see server logs)"
+                )
+        return agent_status
 
     def _apply_demo_overlay(self) -> None:
         """Fill empty dashboard sections with sample data (DEMO_SEED only)."""
