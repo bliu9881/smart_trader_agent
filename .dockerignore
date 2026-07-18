@@ -1,0 +1,40 @@
+# Git
+.git/
+.gitignore
+
+# Python bytecode / caches (must never leak into the image)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local virtualenvs / build artifacts
+.venv/
+venv/
+.venv-*/
+build/
+dist/
+
+# Runtime cache & state (created inside the container at runtime)
+smart_trader/cache/
+smart_trader/state_snapshot.json
+smart_trader/TRADING_HALTED.lock
+logs/
+*.log
+
+# Secrets — never bake into an image
+.env
+*.env.local
+
+# Frontend deps/build (Dockerfile builds these fresh in the frontend stage)
+dashboard-ui/node_modules/
+dashboard-ui/dist/
+
+# Editor / OS cruft
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
