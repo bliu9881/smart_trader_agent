@@ -40,6 +40,7 @@ from smart_trader.core.catalyst_analyzer import CatalystAnalyzer
 from smart_trader.core.entry_calculator import EntryCalculator
 from smart_trader.core.holdings_scraper import HoldingsScraper
 from smart_trader.core.ladder_in import LadderInEngine
+from smart_trader.core.market_hours import is_market_open, market_status_reason
 from smart_trader.core.portfolio_scorer import PortfolioScorer, ScoredStock
 from smart_trader.core.regime import classify_regime
 from smart_trader.core.risk_manager import PortfolioState, RiskManager
@@ -159,6 +160,14 @@ class SmartTrader:
         # Demo seeding: when DEMO_SEED is truthy, fill empty dashboard sections
         # with sample data (real data always wins once the pipeline produces it).
         self._demo_seed: bool = demo_data._is_on(os.environ.get("DEMO_SEED"))
+
+        # Market-hours gate: skip scan/AI work when the US market is closed.
+        # Config default, overridable at deploy time via MARKET_HOURS_GATE
+        # (set to 0/false to run around the clock, e.g. for an off-hours demo).
+        self._market_hours_gate: bool = self.config.trader.market_hours_gate_enabled
+        _env_gate = os.environ.get("MARKET_HOURS_GATE")
+        if _env_gate is not None:
+            self._market_hours_gate = demo_data._is_on(_env_gate)
 
     # --------------------------------------------------------------- startup
 
@@ -417,6 +426,22 @@ class SmartTrader:
         self._shutdown()
 
     def _cycle(self) -> None:
+        # Market-hours gate: when the US market is closed, skip the expensive
+        # scan/AI work (no scraping, no Qwen calls) to save credits. Keep the
+        # dashboard alive by refreshing the next-cycle time and demo overlay;
+        # last-known real data persists in the store until the next open cycle.
+        if self._market_hours_gate and not is_market_open():
+            next_cycle = datetime.now() + timedelta(
+                seconds=self.config.trader.cycle_interval_seconds
+            )
+            logger.info(
+                f"Market closed ({market_status_reason()}) — skipping cycle; "
+                f"next check {next_cycle.strftime('%H:%M')}"
+            )
+            api_state.update(next_cycle_time=next_cycle.isoformat())
+            self._apply_demo_overlay()
+            return
+
         logger.info("-" * 40)
         cycle_start = time.time()
         equity = self.client.get_portfolio_value()

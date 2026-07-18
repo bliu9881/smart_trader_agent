@@ -478,7 +478,11 @@ class TraderConfig:
     # empty — the scanner will fill the candidate set dynamically.
     watchlist: List[str] = field(default_factory=list)
 
-    cycle_interval_seconds: int = 300  # 5 min
+    cycle_interval_seconds: int = 3600  # 1 hour
+
+    # Skip the cycle's scan/AI work when the US market is closed (nights,
+    # weekends, holidays) to cut idle API/credit usage. See core.market_hours.
+    market_hours_gate_enabled: bool = True
 
     # Entry signal defaults (applied when building Signals from scanner candidates)
     default_stop_pct: float = 0.08      # 8% hard stop below entry
