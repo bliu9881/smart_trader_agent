@@ -69,11 +69,15 @@ class QwenClient:
         temperature: float = 0.3,
         max_tokens: int = 500,
         response_format: Optional[dict] = None,
+        timeout: Optional[float] = None,
     ) -> Union[QwenResponse, QwenError]:
         """Send a chat completion request.
 
         Returns QwenResponse on success, QwenError on any failure. Never raises.
+        ``timeout`` overrides the default api_timeout_seconds for this call —
+        used by heavier calls (e.g. commentary generation) that need longer.
         """
+        request_timeout = timeout if timeout is not None else self._timeout
         body: Dict = {
             "model": self._model,
             "messages": messages,
@@ -98,7 +102,7 @@ class QwenClient:
                     self._endpoint,
                     json=body,
                     headers=headers,
-                    timeout=self._timeout,
+                    timeout=request_timeout,
                 )
                 latency = time.time() - start_time
                 status = response.status_code
@@ -139,7 +143,7 @@ class QwenClient:
                 last_error = QwenError(
                     error_category="timeout",
                     status_code=None,
-                    description=f"Request timed out after {self._timeout}s",
+                    description=f"Request timed out after {request_timeout}s",
                 )
                 logger.info(
                     "Qwen request failed | model=%s latency=%.2fs category=timeout attempt=%d/%d",

@@ -61,6 +61,9 @@ class CommentaryGenerator:
                 messages=messages,
                 temperature=0.5,
                 max_tokens=self._config.max_commentary_tokens,
+                # Commentary is the heaviest call; give it its own (longer)
+                # budget instead of the global 10s api_timeout_seconds.
+                timeout=self._config.commentary_timeout_seconds,
             )
 
             if isinstance(result, QwenError):
