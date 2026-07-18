@@ -34,6 +34,7 @@ from typing import Any, Dict, List, Optional
 
 from zoneinfo import ZoneInfo
 
+from smart_trader import demo_data
 from smart_trader.api.state import store as api_state
 from smart_trader.core.catalyst_analyzer import CatalystAnalyzer
 from smart_trader.core.entry_calculator import EntryCalculator
@@ -154,6 +155,10 @@ class SmartTrader:
         self._catalyst_init_error: Optional[str] = None
         self._qwen_init_error: Optional[str] = None
         self._cycle_count: int = 0
+
+        # Demo seeding: when DEMO_SEED is truthy, fill empty dashboard sections
+        # with sample data (real data always wins once the pipeline produces it).
+        self._demo_seed: bool = demo_data._is_on(os.environ.get("DEMO_SEED"))
 
     # --------------------------------------------------------------- startup
 
@@ -380,6 +385,12 @@ class SmartTrader:
                 "last_cycle_timestamp": None,
             },
         )
+
+        # Seed sample data before the first cycle so the dashboard isn't empty
+        # on initial load (DEMO_SEED only; real data replaces it as it arrives).
+        if self._demo_seed:
+            logger.info("DEMO_SEED enabled — seeding sample dashboard data")
+            self._apply_demo_overlay()
 
         self._start_api_server()
         self._running = True
@@ -1069,6 +1080,9 @@ class SmartTrader:
             regime=regime_state.to_dict() if regime_state is not None else None,
         )
 
+        # Re-fill any sections the live cycle left empty (DEMO_SEED only).
+        self._apply_demo_overlay()
+
         self._persist_exit_state()
 
     # --------------------------------------------------------------- helpers
@@ -1604,6 +1618,17 @@ class SmartTrader:
         if arb_reasoning:
             entry["arbitration_reasoning"] = arb_reasoning
         return entry
+
+    def _apply_demo_overlay(self) -> None:
+        """Fill empty dashboard sections with sample data (DEMO_SEED only)."""
+        if not self._demo_seed:
+            return
+        try:
+            updates = demo_data.demo_overlay(api_state.snapshot())
+            if updates:
+                api_state.update(**updates)
+        except Exception as e:
+            logger.warning(f"Demo overlay failed (non-fatal): {e}")
 
     def _start_api_server(self) -> None:
         import uvicorn
