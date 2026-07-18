@@ -25,6 +25,31 @@ from smart_trader.settings.config import RiskConfig, SmartMoneyConfig
 
 logger = logging.getLogger(__name__)
 
+_PROVIDERS_PKG = "smart_trader.core.smart_money_providers"
+
+
+def _init_providers_from_specs(providers: list, specs: list, config) -> None:
+    """Append enabled providers to ``providers``, importing each lazily.
+
+    ``specs`` is a list of ``(enabled, module_name, class_name)`` tuples. A
+    disabled provider is skipped; an enabled provider whose module isn't
+    shipped (or fails to construct) is logged and skipped rather than raising —
+    so one missing/experimental provider never takes down the whole pipeline.
+    """
+    import importlib
+
+    for enabled, module_name, class_name in specs:
+        if not enabled:
+            continue
+        try:
+            module = importlib.import_module(f"{_PROVIDERS_PKG}.{module_name}")
+            provider_cls = getattr(module, class_name)
+            providers.append(provider_cls(config))
+        except Exception as e:
+            logger.warning(
+                f"  provider '{module_name}' unavailable — skipping ({type(e).__name__}: {e})"
+            )
+
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -159,23 +184,21 @@ class SmartMoneyScanner:
     # ------------------------------------------------------------------
 
     def _init_providers(self) -> None:
-        """Instantiate enabled providers based on config toggles."""
-        from smart_trader.core.smart_money_providers.capitol_trades import CapitolTradesProvider
-        from smart_trader.core.smart_money_providers.sec_edgar import SECEdgarProvider
-        from smart_trader.core.smart_money_providers.berkshire_13f import BerkshireProvider
-        from smart_trader.core.smart_money_providers.ark_invest import ARKProvider
-        from smart_trader.core.smart_money_providers.insider_cluster import InsiderClusterProvider
+        """Instantiate enabled providers based on config toggles.
 
-        if self.config.capitol_trades_enabled:
-            self._providers.append(CapitolTradesProvider(self.config))
-        if self.config.sec_edgar_enabled:
-            self._providers.append(SECEdgarProvider(self.config))
-        if self.config.berkshire_enabled:
-            self._providers.append(BerkshireProvider(self.config))
-        if self.config.ark_enabled:
-            self._providers.append(ARKProvider(self.config))
-        if self.config.insider_cluster_enabled:
-            self._providers.append(InsiderClusterProvider(self.config))
+        Providers are imported lazily and only when enabled, so a disabled or
+        not-shipped provider module is skipped with a warning instead of taking
+        down the whole scanner at import time.
+        """
+        # (enabled, module_name, class_name)
+        specs = [
+            (self.config.capitol_trades_enabled, "capitol_trades", "CapitolTradesProvider"),
+            (self.config.sec_edgar_enabled, "sec_edgar", "SECEdgarProvider"),
+            (self.config.berkshire_enabled, "berkshire_13f", "BerkshireProvider"),
+            (self.config.ark_enabled, "ark_invest", "ARKProvider"),
+            (self.config.insider_cluster_enabled, "insider_cluster", "InsiderClusterProvider"),
+        ]
+        _init_providers_from_specs(self._providers, specs, self.config)
 
         logger.info(
             f"SmartMoneyScanner: initialized {len(self._providers)} providers: "

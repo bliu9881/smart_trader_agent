@@ -22,7 +22,11 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from smart_trader.core.smart_money import DataProvider, FundHoldings
+from smart_trader.core.smart_money import (
+    DataProvider,
+    FundHoldings,
+    _init_providers_from_specs,
+)
 from smart_trader.settings.config import SmartMoneyConfig
 
 logger = logging.getLogger(__name__)
@@ -47,60 +51,34 @@ class HoldingsScraper:
 
     # ---------------------------------------------------------------- init
     def _init_providers(self) -> None:
-        """Instantiate only holdings-capable providers per config toggles."""
-        from smart_trader.core.smart_money_providers.berkshire_13f import BerkshireProvider
-        from smart_trader.core.smart_money_providers.ark_invest import ARKProvider
-        from smart_trader.core.smart_money_providers.pershing_square_13f import PershingSquareProvider
-        from smart_trader.core.smart_money_providers.appaloosa_13f import AppaloosaProvider
-        from smart_trader.core.smart_money_providers.duquesne_13f import DuquesneProvider
-        # Tier-A 13F additions (2026-04)
-        from smart_trader.core.smart_money_providers.tci_13f import TCIProvider
-        from smart_trader.core.smart_money_providers.baupost_13f import BaupostProvider
-        from smart_trader.core.smart_money_providers.akre_capital_13f import AkreCapitalProvider
-        from smart_trader.core.smart_money_providers.viking_global_13f import VikingGlobalProvider
-        from smart_trader.core.smart_money_providers.altimeter_13f import AltimeterProvider
-        from smart_trader.core.smart_money_providers.third_point_13f import ThirdPointProvider
-        from smart_trader.core.smart_money_providers.lone_pine_13f import LonePineProvider
-        from smart_trader.core.smart_money_providers.greenlight_13f import GreenlightProvider
-        # Tier-B ETF additions (2026-04)
-        from smart_trader.core.smart_money_providers.moat_etf import MOATProvider
-        from smart_trader.core.smart_money_providers.cgdv_etf import CGDVProvider
-        from smart_trader.core.smart_money_providers.syld_etf import SYLDProvider
+        """Instantiate only enabled, importable holdings providers.
 
-        if self.config.berkshire_enabled:
-            self._providers.append(BerkshireProvider(self.config))
-        if self.config.ark_enabled:
-            self._providers.append(ARKProvider(self.config))
-        if self.config.pershing_square_enabled:
-            self._providers.append(PershingSquareProvider(self.config))
-        if self.config.appaloosa_enabled:
-            self._providers.append(AppaloosaProvider(self.config))
-        if self.config.duquesne_enabled:
-            self._providers.append(DuquesneProvider(self.config))
-        # Tier-A 13F
-        if self.config.tci_enabled:
-            self._providers.append(TCIProvider(self.config))
-        if self.config.baupost_enabled:
-            self._providers.append(BaupostProvider(self.config))
-        if self.config.akre_enabled:
-            self._providers.append(AkreCapitalProvider(self.config))
-        if self.config.viking_enabled:
-            self._providers.append(VikingGlobalProvider(self.config))
-        if self.config.altimeter_enabled:
-            self._providers.append(AltimeterProvider(self.config))
-        if self.config.third_point_enabled:
-            self._providers.append(ThirdPointProvider(self.config))
-        if self.config.lone_pine_enabled:
-            self._providers.append(LonePineProvider(self.config))
-        if self.config.greenlight_enabled:
-            self._providers.append(GreenlightProvider(self.config))
-        # Tier-B ETF
-        if self.config.moat_enabled:
-            self._providers.append(MOATProvider(self.config))
-        if self.config.cgdv_enabled:
-            self._providers.append(CGDVProvider(self.config))
-        if self.config.syld_enabled:
-            self._providers.append(SYLDProvider(self.config))
+        Each provider is imported lazily and only when its config toggle is on;
+        a disabled or not-shipped provider module is skipped with a warning
+        rather than crashing the whole pipeline at import time.
+        """
+        # (enabled, module_name, class_name)
+        specs = [
+            (self.config.berkshire_enabled, "berkshire_13f", "BerkshireProvider"),
+            (self.config.ark_enabled, "ark_invest", "ARKProvider"),
+            (self.config.pershing_square_enabled, "pershing_square_13f", "PershingSquareProvider"),
+            (self.config.appaloosa_enabled, "appaloosa_13f", "AppaloosaProvider"),
+            (self.config.duquesne_enabled, "duquesne_13f", "DuquesneProvider"),
+            # Tier-A 13F additions (2026-04)
+            (self.config.tci_enabled, "tci_13f", "TCIProvider"),
+            (self.config.baupost_enabled, "baupost_13f", "BaupostProvider"),
+            (self.config.akre_enabled, "akre_capital_13f", "AkreCapitalProvider"),
+            (self.config.viking_enabled, "viking_global_13f", "VikingGlobalProvider"),
+            (self.config.altimeter_enabled, "altimeter_13f", "AltimeterProvider"),
+            (self.config.third_point_enabled, "third_point_13f", "ThirdPointProvider"),
+            (self.config.lone_pine_enabled, "lone_pine_13f", "LonePineProvider"),
+            (self.config.greenlight_enabled, "greenlight_13f", "GreenlightProvider"),
+            # Tier-B ETF additions (2026-04)
+            (self.config.moat_enabled, "moat_etf", "MOATProvider"),
+            (self.config.cgdv_enabled, "cgdv_etf", "CGDVProvider"),
+            (self.config.syld_enabled, "syld_etf", "SYLDProvider"),
+        ]
+        _init_providers_from_specs(self._providers, specs, self.config)
 
         logger.info(
             f"HoldingsScraper: initialized {len(self._providers)} providers: "
