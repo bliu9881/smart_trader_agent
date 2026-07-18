@@ -148,6 +148,11 @@ class SmartTrader:
         # Qwen agent components (optional — None when disabled or init fails)
         self.signal_arbitrator: Optional["SignalArbitrator"] = None
         self.commentary_generator: Optional["CommentaryGenerator"] = None
+        # Concrete reasons captured when a component fails to initialize, so the
+        # dashboard "failed" status is diagnosable instead of opaque. None means
+        # "no init error" (component is either wired or intentionally disabled).
+        self._catalyst_init_error: Optional[str] = None
+        self._qwen_init_error: Optional[str] = None
         self._cycle_count: int = 0
 
     # --------------------------------------------------------------- startup
@@ -250,8 +255,12 @@ class SmartTrader:
             if self.catalyst_analyzer:
                 logger.info("CatalystAnalyzer initialized")
         except Exception as e:
-            logger.warning(f"CatalystAnalyzer init failed (continuing without): {e}")
+            logger.warning(
+                f"CatalystAnalyzer init failed (continuing without): {e}",
+                exc_info=True,
+            )
             self.catalyst_analyzer = None
+            self._catalyst_init_error = f"analyzer init failed: {e}"
 
         try:
             self.ohlcv_store = OHLCVStore(
@@ -298,13 +307,30 @@ class SmartTrader:
                         qwen_client, self.config.qwen_agent
                     )
 
-                    # Inject CatalystClassifier into CatalystAnalyzer if it exists
+                    # Inject CatalystClassifier into CatalystAnalyzer if it exists.
+                    # Isolated so an injection failure degrades only catalyst
+                    # classification — arbitration and commentary stay healthy.
                     if self.catalyst_analyzer is not None:
-                        catalyst_classifier = CatalystClassifier(
-                            qwen_client, self.config.qwen_agent
+                        try:
+                            catalyst_classifier = CatalystClassifier(
+                                qwen_client, self.config.qwen_agent
+                            )
+                            self.catalyst_analyzer._classifier = catalyst_classifier
+                            logger.info("Qwen CatalystClassifier injected into CatalystAnalyzer")
+                        except Exception as e:
+                            logger.warning(
+                                f"CatalystClassifier injection failed "
+                                f"(catalyst runs regex-only): {e}",
+                                exc_info=True,
+                            )
+                            self._catalyst_init_error = f"classifier injection failed: {e}"
+                    elif self.config.smart_money.catalyst_enabled:
+                        # Classification is enabled but no analyzer exists to host the
+                        # classifier — record why so the status is not a silent "failed".
+                        self._catalyst_init_error = (
+                            self._catalyst_init_error
+                            or "CatalystAnalyzer unavailable (analyzer init failed)"
                         )
-                        self.catalyst_analyzer._classifier = catalyst_classifier
-                        logger.info("Qwen CatalystClassifier injected into CatalystAnalyzer")
 
                     # Commentary Generator (runs in background thread per cycle)
                     if self.config.qwen_agent.commentary_enabled:
@@ -317,9 +343,14 @@ class SmartTrader:
                     logger.info("Qwen agent components initialized (SignalArbitrator ready)")
                 except Exception as e:
                     logger.warning(
-                        f"Qwen agent init failed (continuing without): {e}"
+                        f"Qwen agent init failed (continuing without): {e}",
+                        exc_info=True,
                     )
+                    # Reset ALL Qwen-backed components consistently — a failure here
+                    # leaves none of them safely usable this session.
                     self.signal_arbitrator = None
+                    self.commentary_generator = None
+                    self._qwen_init_error = str(e)
 
         # Late-bind ohlcv_store into MockBroker for fill pricing
         if mock_mode and self.ohlcv_store is not None:
@@ -923,13 +954,21 @@ class SmartTrader:
             "last_cycle_timestamp": datetime.now().isoformat(),
         }
         if self.config.qwen_agent.qwen_enabled:
-            # Catalyst status
+            # Catalyst status. "failed" is reserved for genuine wiring errors;
+            # a source that is simply switched off reports "disabled" so the
+            # dashboard never shows a false alarm.
             if self.config.qwen_agent.catalyst_classification_enabled:
-                agent_status["catalyst"] = (
-                    "succeeded" if self.catalyst_analyzer is not None
+                classifier_wired = (
+                    self.catalyst_analyzer is not None
                     and getattr(self.catalyst_analyzer, "_classifier", None) is not None
-                    else "failed"
                 )
+                if not self.config.smart_money.catalyst_enabled:
+                    # News source itself is off — classification has nothing to run on.
+                    agent_status["catalyst"] = "disabled"
+                elif classifier_wired:
+                    agent_status["catalyst"] = "succeeded"
+                else:
+                    agent_status["catalyst"] = "failed"
             # Arbitration status
             if self.config.qwen_agent.signal_arbitration_enabled:
                 agent_status["arbitration"] = (
@@ -939,6 +978,18 @@ class SmartTrader:
             if self.config.qwen_agent.commentary_enabled:
                 agent_status["commentary"] = (
                     "succeeded" if self.commentary_generator is not None else "failed"
+                )
+            # Attach a concrete reason for any "failed" component so the failure is
+            # diagnosable from the API/dashboard, not just the server logs.
+            if agent_status["catalyst"] == "failed":
+                agent_status["catalyst_error"] = (
+                    self._catalyst_init_error
+                    or self._qwen_init_error
+                    or "CatalystClassifier not wired (see server logs)"
+                )
+            if "failed" in (agent_status["arbitration"], agent_status["commentary"]):
+                agent_status["qwen_error"] = (
+                    self._qwen_init_error or "Qwen component not initialized (see server logs)"
                 )
         api_state.update(agent_status=agent_status)
 

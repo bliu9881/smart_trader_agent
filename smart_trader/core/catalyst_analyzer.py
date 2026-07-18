@@ -119,7 +119,19 @@ class CatalystAnalyzer:
     ):
         self._cfg = config
         self._cache_dir = Path(cache_dir)
-        self._cache_dir.mkdir(parents=True, exist_ok=True)
+        # Disk caching is an optimization, not a requirement — analyze() works
+        # fine without it (see _load_cache/_save_cache). A read-only or
+        # unwritable filesystem must NOT disable the whole catalyst feature, so
+        # a failed mkdir degrades to "no cache" instead of raising.
+        try:
+            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            self._cache_enabled = True
+        except OSError as e:
+            logger.warning(
+                f"catalyst: cache dir {self._cache_dir} not writable ({e}); "
+                f"continuing without disk cache"
+            )
+            self._cache_enabled = False
         self._finnhub_key: str = os.environ.get("FINNHUB_API_KEY", "")
         self._classifier = classifier
 
@@ -285,6 +297,8 @@ class CatalystAnalyzer:
         return self._cache_dir / f"{symbol}_{date_str}.json"
 
     def _load_cache(self, symbol: str) -> Optional[List[CatalystEvent]]:
+        if not self._cache_enabled:
+            return None
         path = self._cache_path(symbol)
         if not path.exists():
             return None
@@ -305,6 +319,8 @@ class CatalystAnalyzer:
             return None
 
     def _save_cache(self, symbol: str, events: List[CatalystEvent]) -> None:
+        if not self._cache_enabled:
+            return
         path = self._cache_path(symbol)
         try:
             serializable = []

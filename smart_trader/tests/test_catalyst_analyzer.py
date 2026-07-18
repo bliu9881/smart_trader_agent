@@ -178,6 +178,39 @@ def tmp_analyzer():
         yield CatalystAnalyzer(cfg, cache_dir=tmp), tmp
 
 
+# ---------------------------------------------------------------------------
+# Cache-dir resilience — an unwritable cache dir must NOT disable catalyst.
+# Regression: a failed mkdir used to raise, leaving catalyst_analyzer=None and
+# the dashboard "Catalyst AI" status stuck on "failed".
+# ---------------------------------------------------------------------------
+
+def test_init_survives_unwritable_cache_dir():
+    """Construction must not raise when the cache dir can't be created."""
+    cfg = SmartMoneyConfig()
+    with patch("pathlib.Path.mkdir", side_effect=OSError("read-only file system")):
+        analyzer = CatalystAnalyzer(cfg, cache_dir="/nonexistent/read-only/catalyst")
+    assert analyzer._cache_enabled is False
+
+
+def test_analyze_works_without_cache_dir():
+    """analyze() still fetches/classifies when disk caching is unavailable."""
+    cfg = SmartMoneyConfig()
+    with patch("pathlib.Path.mkdir", side_effect=OSError("read-only file system")):
+        analyzer = CatalystAnalyzer(cfg, cache_dir="/nonexistent/read-only/catalyst")
+
+    now_iso = datetime.now(tz=timezone.utc).isoformat()
+    mock_ticker = MagicMock()
+    mock_ticker.news = [_make_yf_news_item("Acme Corp beats earnings estimates", now_iso)]
+    with patch("yfinance.Ticker", return_value=mock_ticker):
+        result = analyzer.analyze(["ACME"])
+
+    # Caching is disabled, so no read/write is attempted, but classification runs.
+    assert analyzer._cache_enabled is False
+    assert "ACME" in result
+    assert len(result["ACME"]) == 1
+    assert result["ACME"][0].catalyst_type == "earnings_beat"
+
+
 def test_analyze_returns_events_from_yfinance(tmp_analyzer):
     analyzer, _ = tmp_analyzer
     now_iso = datetime.now(tz=timezone.utc).isoformat()
