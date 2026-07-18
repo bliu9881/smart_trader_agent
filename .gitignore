@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# Cache/State
+smart_trader/cache/
+smart_trader/state_snapshot.json
+smart_trader/TRADING_HALTED.lock
+logs/
+
+# Node
+dashboard-ui/node_modules/
+dashboard-ui/dist/
+
+# OS
+.DS_Store
+Thumbs.db

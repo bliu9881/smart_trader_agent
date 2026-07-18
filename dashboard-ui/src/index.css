@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+@theme {
+  /* Light theme — page surfaces get progressively cooler/darker */
+  --color-void: #f4f5f9;        /* page backdrop */
+  --color-panel: #ffffff;       /* cards */
+  --color-elevated: #f3f4f8;    /* mini-tiles / inputs */
+  --color-surface: #e9ebf1;     /* deeper fills */
+  --color-dim: #e4e6ee;         /* subtle borders */
+  --color-glow: #c9cdda;        /* hover borders */
+
+  /* Accent + semantic — slightly desaturated for readability on light */
+  --color-accent: #c2850a;
+  --color-positive: #0a9d63;
+  --color-negative: #dc2743;
+  --color-info: #0891b2;
+
+  /* Text hierarchy */
+  --color-muted: #6b7080;       /* secondary text */
+  --color-faint: #9ca3af;       /* tertiary text */
+
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* ——— Base ——— */
+html {
+  background: var(--color-void);
+  color: #1a1d2e;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    var(--color-void);
+  background-size: 60px 60px, 60px 60px, 100%;
+}
+
+/* ——— Animations ——— */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    opacity: 0.5;
+    box-shadow: 0 0 4px currentColor;
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 12px currentColor;
+  }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+/* ——— Panel / Card ——— */
+.panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-dim);
+  border-radius: 12px;
+  padding: 20px 24px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  animation: fadeSlideUp 0.5s ease-out both;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.panel:hover {
+  border-color: var(--color-glow);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+/* Subtle amber accent line at top */
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(194, 133, 10, 0.25), transparent);
+}
+
+/* ——— Skeleton loading ——— */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-elevated) 0%,
+    var(--color-surface) 50%,
+    var(--color-elevated) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* ——— Scrollbar ——— */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-dim) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-dim);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-glow);
+}
+
+/* ——— Recharts overrides ——— */
+.recharts-cartesian-grid line {
+  stroke: rgba(15, 23, 42, 0.06) !important;
+}
+
+.recharts-tooltip-wrapper {
+  filter: drop-shadow(0 8px 32px rgba(15, 23, 42, 0.15));
+}
