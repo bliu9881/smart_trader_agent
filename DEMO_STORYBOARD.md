@@ -48,38 +48,39 @@ docker run -d --name smart-trader --restart unless-stopped \
 >
 > But following smart money isn't enough — timing and risk decide outcomes. So the agent only buys when the technicals confirm: price above its 200-day moving average, on pullbacks to the 8-day EMA or confirmed gap-ups. A market-regime filter blocks new entries unless the S&P 500 is in a healthy uptrend, and a deterministic risk manager caps risk per trade, enforces sector and correlation limits, and halts trading on a drawdown breach. On top of all of that, Qwen Cloud reasons about news catalysts, ranks competing signals, and explains every decision in plain English."
 
-> **Timing note:** this intro runs ~40s (up from 20s). Trim Segment 2 to ~25s and Segment 4 to ~35s to stay near 3:00, or let the total run to ~3:15.
+> **Timeline (total ~3:10):** S1 0:00–0:40 · S2 0:40–1:05 · S3 1:05–1:55 · S4 1:55–2:35 · S5 2:35–2:55 · S6 2:55–3:10. Trim within any segment to hold ~3:00.
 
 ---
 
-## Segment 2: Architecture Overview (0:20–0:50)
+## Segment 2: Architecture — "Gated Mode" (0:40–1:05)
 
-**Show:** Architecture diagram (from architecture.md, rendered as image)
+**Show:** Architecture diagram from `architecture.md` (renders inline on GitHub, or export a PNG from https://mermaid.live)
 
-**Script:**
-> "The architecture has three layers. The Rule Engine scrapes public data and scores conviction. The Qwen Agent Layer enhances this with AI-powered catalyst classification, signal ranking, and commentary. The Risk Manager has absolute veto — Qwen can never override safety controls. This is what we call 'gated mode' — AI reasons, rules enforce."
+**Script (builds on the intro — don't re-list the sources):**
+> "That whole pipeline maps onto three layers. The rule engine turns those public filings into conviction-scored candidates. The Qwen layer adds the judgment — classifying catalysts, ranking competing signals, writing the commentary. And underneath sits the risk manager with absolute veto. We call this **gated mode**: the AI can reason and recommend, but it can never place a trade the rules reject or change a risk limit. AI reasons — rules enforce."
 
-**Highlight:** "The system tries Interactive Brokers first for real paper trading. If unavailable, it falls back to a mock broker — visible right here in the dashboard as 'Mock Broker'."
+**Highlight (broker fallback):**
+> "It connects to Interactive Brokers for paper trading and falls back to a built-in mock broker when IBKR isn't reachable — that's the 'Mock Broker' badge on the dashboard."
 
 ---
 
-## Segment 3: Live System Running (0:50–1:40)
+## Segment 3: Live System Running (1:05–1:55)
 
 **Show:** Terminal with `docker logs -f smart-trader` showing a live cycle
 (recorded with `MARKET_HOURS_GATE=0` so a cycle runs on camera — see Recording setup)
 
 **Script:**
-> "Here's the system running an hourly cycle — gated to US market hours in production to save credits. You can see it scanning 4 data providers, finding candidates, resolving sectors..."
+> "Here it is running a live cycle. Watch the log — it pulls the smart-money filings, scores conviction across sources, checks the market regime, and applies the technical entry gate."
 
-**Wait for Qwen log line to appear:**
-> "And here — Qwen Cloud is called via DashScope API. The Signal Arbitrator ranks candidates, and the Commentary Generator produces a plain-English summary of what happened."
+**Wait for the Qwen log line to appear:**
+> "Now Qwen Cloud is called over the DashScope API — classifying the news catalysts and ranking candidates against the current portfolio. Then the commentary generator writes a plain-English summary of the cycle."
 
-**Switch to browser — show the Agent Commentary card updating:**
-> "The dashboard shows the AI commentary in real time. It explains entries made, positions held, and why candidates were skipped."
+**Switch to browser — show the Agent Commentary card:**
+> "That summary lands right here on the Agent Commentary card — the agent explaining, in its own words, what it did this cycle and why."
 
 ---
 
-## Segment 4: Dashboard Features (1:40–2:20)
+## Segment 4: Dashboard Features (1:55–2:35)
 
 **Show:** Walk through dashboard panels
 
@@ -106,12 +107,14 @@ docker run -d --name smart-trader --restart unless-stopped \
 
 7. **Portfolio Card** — show simulated equity
 
-**Script:**
-> "Every component's health is visible. Judges can immediately see which AI components are active and the broker mode. The signal feed includes Qwen's reasoning for why each signal was ranked where it was."
+**Script (tie each panel back to the thesis):**
+> "The dashboard makes the whole decision chain observable. Up top, every AI component's health — all green. The Regime panel is the live market gate we mentioned — the S&P above its 200-day average, so entries are on. Smart-Money shows the real scanned candidates with their conviction scores and the fund behind each — like Berkshire's stake in Google. The Signal Feed carries Qwen's ranking reasoning on every signal, and the risk panel shows the circuit breakers standing guard over the portfolio."
+
+> **Say the honesty line here:** "Positions and signals shown are illustrative sample data — the regime, smart-money candidates, and AI commentary are live."
 
 ---
 
-## Segment 5: Proof of Alibaba Cloud (2:20–2:40)
+## Segment 5: Proof of Alibaba Cloud (2:35–2:55)
 
 **Show:** Terminal SSH session to ECS instance
 
@@ -128,18 +131,18 @@ docker logs smart-trader | grep "dashscope-intl"
 ```
 
 **Script:**
-> "The backend runs entirely on Alibaba Cloud ECS. Here's the instance metadata proving it's an Alibaba Cloud machine, the Docker container serving on port 8000, and the logs showing API calls to Qwen Cloud's DashScope endpoint."
+> "And it all runs on Alibaba Cloud ECS. Here's the instance metadata confirming the Alibaba Cloud machine, the Docker container serving on port 8000, and the logs calling Qwen Cloud's DashScope endpoint."
 
 ---
 
-## Segment 6: Key Innovation (2:40–3:00)
+## Segment 6: Key Innovation & Close (2:55–3:10)
 
 **Show:** Return to dashboard
 
-**Script:**
-> "The key innovation is the gated-mode architecture. Qwen handles the nuanced reasoning — catalyst classification, signal prioritization, plain-English explanations — while deterministic risk controls ensure safety. If Qwen goes down, the system continues trading with its rule-based engine. No single point of failure, production-ready from day one."
+**Script (tie back to the thesis, not a new pitch):**
+> "The edge here isn't a black box — it's disciplined execution on public information: aggregate smart money, demand multi-source agreement, confirm with technicals and market regime, and give deterministic risk controls the final say. Qwen adds the reasoning and the transparency — and if Qwen ever goes down, the rule engine keeps running. No single point of failure."
 
-> "Smart Trader Agent — from smart-money filings to executed trades, fully autonomous, powered by Qwen Cloud."
+> "Smart Trader Agent — turning public smart-money disclosures into disciplined, explainable, risk-managed decisions. Powered by Qwen Cloud."
 
 ---
 
@@ -149,4 +152,4 @@ docker logs smart-trader | grep "dashscope-intl"
 - Dark terminal theme matches the dashboard's dark mode
 - Keep the browser at ~80% zoom so text is readable
 - Upload to YouTube as "unlisted" or "public"
-- Total length: aim for 2:30–3:00 (judges appreciate conciseness)
+- Total length: ~3:10 with the current script (see the timeline under Segment 1); trim within segments if you need to hold under 3:00
