@@ -30,12 +30,25 @@ docker run -d --name smart-trader --restart unless-stopped \
 
 ---
 
-## Segment 1: Introduction (0:00–0:20)
+## Segment 1: Introduction & Trading Thesis (0:00–0:40)
 
 **Show:** Dashboard in browser (http://47.251.3.72:8000)
 
+**Trading facts to hit (the "why this works"):**
+- **Insider buys are public.** Corporate insiders — officers, directors, 10%+ owners — must report their own trades to the SEC on **Form 4 within 2 business days**. Insiders sell for many reasons, but they *buy* for essentially one: they expect the stock to go up.
+- **Institutions must show their hand.** Managers with **$100M+** must file a **13F within 45 days of each quarter**, revealing what Berkshire Hathaway and other "superinvestors" actually hold.
+- **Some funds disclose daily.** ARK Invest publishes full ETF holdings every day; Morningstar's Wide-Moat ETF tracks companies with durable competitive advantages.
+- **The gap:** this "smart money" is legally public but scattered across thousands of filings and slow to aggregate — so most people never act on it systematically.
+- **Following it isn't enough — timing + risk are the edge:** enter only with technical confirmation (price above the **200-day SMA**, buying **8-EMA pullbacks** or confirmed **gap-ups**), only when the broad market (S&P 500) is in an uptrend, and with strict risk limits.
+
 **Script:**
-> "Smart Trader Agent is an autonomous trading agent powered by Qwen Cloud. It aggregates public smart-money disclosures — SEC insider filings, Berkshire Hathaway 13F, ARK Invest holdings, and Morningstar Wide Moat ETF — then uses Qwen to reason about news catalysts, rank competing signals, and explain its decisions."
+> "Every quarter, the world's best investors are legally required to show their hand. Corporate insiders report their own trades to the SEC within two business days. Institutions managing over a hundred million dollars disclose their holdings every quarter. Funds like ARK publish theirs daily. This is 'smart money' — and it's all public. The problem is it's buried across thousands of filings and slow to piece together.
+>
+> Smart Trader Agent aggregates it — SEC Form 4 insider buys, Berkshire Hathaway's 13F, ARK Invest, and Morningstar's Wide-Moat ETF — and scores conviction by how many independent sources agree, weighted by how recent each filing is.
+>
+> But following smart money isn't enough — timing and risk decide outcomes. So the agent only buys when the technicals confirm: price above its 200-day moving average, on pullbacks to the 8-day EMA or confirmed gap-ups. A market-regime filter blocks new entries unless the S&P 500 is in a healthy uptrend, and a deterministic risk manager caps risk per trade, enforces sector and correlation limits, and halts trading on a drawdown breach. On top of all of that, Qwen Cloud reasons about news catalysts, ranks competing signals, and explains every decision in plain English."
+
+> **Timing note:** this intro runs ~40s (up from 20s). Trim Segment 2 to ~25s and Segment 4 to ~35s to stay near 3:00, or let the total run to ~3:15.
 
 ---
 
