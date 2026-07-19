@@ -8,7 +8,7 @@
 
 ## What it does
 
-Smart Trader Agent is an **autonomous trading agent** that aggregates public smart-money disclosures (SEC Form 4, hedge-fund 13F filings, transparent ETF holdings), reasons over them with Qwen AI, and executes risk-managed paper trades — all in a 5-minute automated loop.
+Smart Trader Agent is an **autonomous trading agent** that aggregates public smart-money disclosures (SEC Form 4, hedge-fund 13F filings, transparent ETF holdings), reasons over them with Qwen AI, and executes risk-managed paper trades — all in an hourly automated loop that runs during US market hours.
 
 **The Qwen agent operates in gated mode**: it can classify catalysts, rank competing signals, and explain decisions in plain English — but it cannot create trades independently or override the deterministic risk manager. AI reasons, rules enforce safety.
 
@@ -108,7 +108,7 @@ Open http://localhost:8000 — dashboard + API on one port.
 
 ```
 smart_trader/
-├── main.py                    # 5-min trading loop orchestrator
+├── main.py                    # hourly trading loop orchestrator (market-hours gated)
 ├── qwen/                      # Qwen AI agent layer
 │   ├── client.py              # DashScope HTTP client (retry, timeout, structured errors)
 │   ├── catalyst_classifier.py # Qwen-enhanced headline classification
