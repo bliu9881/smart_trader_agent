@@ -18,23 +18,52 @@
   /* Text hierarchy */
   --color-muted: #6b7080;       /* secondary text */
   --color-faint: #9ca3af;       /* tertiary text */
+  --color-ink: #1a1d2e;         /* primary body text */
+
+  /* Decorative background grid lines */
+  --grid-line: rgba(0, 0, 0, 0.025);
 
   --font-display: 'Sora', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
+/* ——— Dark theme ——— */
+/* Overrides the @theme variables when <html data-theme="dark">. The attribute
+   selector out-specificities the :root defaults Tailwind emits, and every
+   utility resolves var(--color-*) at use time, so this re-themes everything. */
+:root[data-theme="dark"] {
+  --color-void: #06060c;        /* page backdrop (matches theme-color meta) */
+  --color-panel: #0f1119;       /* cards */
+  --color-elevated: #161922;    /* mini-tiles / inputs */
+  --color-surface: #1c2030;     /* deeper fills */
+  --color-dim: #262a38;         /* subtle borders */
+  --color-glow: #3a4056;        /* hover borders */
+
+  /* Neon accents the component glow-shadows were designed around */
+  --color-accent: #e8a308;
+  --color-positive: #00dc82;
+  --color-negative: #ff4757;
+  --color-info: #06b6d4;
+
+  --color-muted: #8b90a0;
+  --color-faint: #5a6070;
+  --color-ink: #e6e8f0;
+
+  --grid-line: rgba(255, 255, 255, 0.03);
+}
+
 /* ——— Base ——— */
 html {
   background: var(--color-void);
-  color: #1a1d2e;
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   background:
-    linear-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
     var(--color-void);
   background-size: 60px 60px, 60px 60px, 100%;
 }
@@ -140,4 +169,21 @@ body {
 
 .recharts-tooltip-wrapper {
   filter: drop-shadow(0 8px 32px rgba(15, 23, 42, 0.15));
+}
+
+/* ——— Dark-theme cosmetic overrides ——— */
+:root[data-theme="dark"] .recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.07) !important;
+}
+
+:root[data-theme="dark"] .recharts-tooltip-wrapper {
+  filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.55));
+}
+
+:root[data-theme="dark"] .panel {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="dark"] .panel:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }

@@ -12,10 +12,27 @@ import SmartMoneyCard from './components/SmartMoneyCard'
 import TopStatsBar from './components/TopStatsBar'
 import AgentCommentaryCard from './components/AgentCommentaryCard'
 
+type Theme = 'light' | 'dark'
+
 export default function App() {
   const health = useApi(() => api.health(), 5000)
   const connected = !health.error && health.data?.status === 'ok'
   const [time, setTime] = useState(new Date())
+
+  // Theme is initialized from the attribute the index.html pre-paint script set
+  // (from localStorage, default dark), then kept in sync on toggle.
+  const [theme, setTheme] = useState<Theme>(
+    () => (document.documentElement.dataset.theme as Theme) || 'dark',
+  )
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try {
+      localStorage.setItem('theme', theme)
+    } catch {
+      /* ignore storage errors (private mode, etc.) */
+    }
+  }, [theme])
 
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000)
@@ -56,6 +73,26 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-5">
+            <button
+              type="button"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="w-8 h-8 rounded-lg border border-dim bg-elevated/40 hover:border-glow flex items-center justify-center text-muted hover:text-accent transition-colors shrink-0"
+            >
+              {theme === 'dark' ? (
+                // Sun icon (click to go light)
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                </svg>
+              ) : (
+                // Moon icon (click to go dark)
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </button>
             <span className="text-xs font-mono text-faint hidden sm:block">
               {time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{' '}
               {time.toLocaleTimeString('en-US', { hour12: false })}
@@ -78,8 +115,8 @@ export default function App() {
 
         {/* Disconnected warning */}
         {!connected && (
-          <div className="mb-5 panel border-amber-300 bg-amber-50">
-            <div className="flex items-center gap-3 text-sm text-amber-800">
+          <div className="mb-5 panel border-accent/30 bg-accent/10">
+            <div className="flex items-center gap-3 text-sm text-accent">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
@@ -87,7 +124,7 @@ export default function App() {
               </svg>
               <span>
                 API unreachable — start the bot:{' '}
-                <code className="font-mono text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded text-xs">
+                <code className="font-mono text-accent bg-accent/15 px-1.5 py-0.5 rounded text-xs">
                   python3 -m smart_trader.main dry-run
                 </code>
               </span>
